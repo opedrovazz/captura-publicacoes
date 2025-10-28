@@ -1,0 +1,72 @@
+import time
+from datetime import datetime
+from ...base_scraper import BaseScraper
+from .diariodocomercio_service import DiarioDoComercioService
+
+INDEX_PATH = "/publicidade-legal-impresso/page/{page_num}/"
+DATE_FORMAT = "%d/%m/%Y"
+
+def scrape_diariodocomercio(cutoff_date, filter_title=False):
+    page_num = 1
+    collected_publications = []
+
+    while True:
+        index_url = f"{DiarioDoComercioService.BASE_URL}{INDEX_PATH.format(page_num=page_num)}"
+        print(f"\nPágina: {index_url}")
+
+        page_html = BaseScraper.get_html_content(index_url)
+        if not page_html:
+            print("Falha ao carregar página. Encerrando.")
+            break
+
+        edital_links = BaseScraper.scrape_edital_links(page_html, DiarioDoComercioService.BASE_URL)
+        if not edital_links:
+            print("Nenhum edital encontrado. Encerrando scraping.")
+            break
+
+        print(f"{len(edital_links)} links de edital encontrados.")
+        collected_on_page = False
+
+        for edital_url in sorted(edital_links, reverse=True):
+            pub_date, pub_date_str = DiarioDoComercioService.parse_publication_date_from_url(edital_url)
+            if not pub_date:
+                print(f"Data inválida: {edital_url}")
+                continue
+
+            if not DiarioDoComercioService.should_collect(pub_date, cutoff_date):
+                print(f"{pub_date_str} excede data limite. Parando scraping.")
+                return collected_publications
+
+            edital_html = BaseScraper.get_html_content(edital_url)
+            if not edital_html:
+                print(f"Erro ao carregar edital: {edital_url}")
+                continue
+
+            title, pdf_url = DiarioDoComercioService.extract_publication_data(edital_html, edital_url)
+            if not title or not pdf_url:
+                print(f"Dados incompletos para {edital_url}")
+                continue
+
+            if DiarioDoComercioService.should_filter_title(title, filter_title):
+                print(f"Pulando '{title}' (filtro ativo).")
+                continue
+
+            collected_publications.append({
+                "date": pub_date_str,
+                "pdf_url": pdf_url,
+                "title": title,
+                "site": "diariodocomercio.com.br",
+                "original_url": edital_url
+            })
+            print(f"Coletado: {pub_date_str} - {title}")
+            collected_on_page = True
+            time.sleep(0.5)
+
+        if not collected_on_page:
+            print("ℹNenhuma publicação nova nesta página.")
+            break
+
+        page_num += 1
+        time.sleep(2)
+
+    return collected_publications
