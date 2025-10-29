@@ -6,7 +6,7 @@ from .diariocomercial_service import DiarioComercialService
 INDEX_PATH = "/publicidade-legal/pagina/{page_num}/"
 DATE_FORMAT = "%d/%m/%Y"
 
-def scrape_diariocomercial(cutoff_date, filter_title=False):
+def scrape_diariocomercial(cutoff_date, filter_text=None):
     page_num = 1
     collected = []
 
@@ -25,8 +25,8 @@ def scrape_diariocomercial(cutoff_date, filter_title=False):
             break
 
         print(f"{len(publications)} publicações encontradas.")
-
         collected_on_page = False
+
         for pub in publications:
             try:
                 pub_date = datetime.strptime(pub["date"], DATE_FORMAT)
@@ -38,8 +38,8 @@ def scrape_diariocomercial(cutoff_date, filter_title=False):
                 print(f"{pub['date']} excede a data limite. Encerrando scraping.")
                 return collected
 
-            if DiarioComercialService.should_filter_title(pub["title"], filter_title):
-                print(f"⏭Pulando '{pub['title']}' (filtro ativo).")
+            if DiarioComercialService.should_filter_title(pub["title"], filter_text):
+                print(f"Pulando '{pub['title']}' (não contém '{filter_text}').")
                 continue
 
             collected.append({

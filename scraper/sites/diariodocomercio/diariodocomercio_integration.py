@@ -6,7 +6,7 @@ from .diariodocomercio_service import DiarioDoComercioService
 INDEX_PATH = "/publicidade-legal-impresso/page/{page_num}/"
 DATE_FORMAT = "%d/%m/%Y"
 
-def scrape_diariodocomercio(cutoff_date, filter_title=False):
+def scrape_diariodocomercio(cutoff_date, filter_text=None):
     page_num = 1
     collected_publications = []
 
@@ -44,11 +44,10 @@ def scrape_diariodocomercio(cutoff_date, filter_title=False):
 
             title, pdf_url = DiarioDoComercioService.extract_publication_data(edital_html, edital_url)
             if not title or not pdf_url:
-                print(f"Dados incompletos para {edital_url}")
                 continue
 
-            if DiarioDoComercioService.should_filter_title(title, filter_title):
-                print(f"Pulando '{title}' (filtro ativo).")
+            if DiarioDoComercioService.should_filter_title(title, filter_text):
+                print(f"Pulando '{title}' (não contém '{filter_text}').")
                 continue
 
             collected_publications.append({
@@ -63,7 +62,7 @@ def scrape_diariodocomercio(cutoff_date, filter_title=False):
             time.sleep(0.5)
 
         if not collected_on_page:
-            print("ℹNenhuma publicação nova nesta página.")
+            print("Nenhuma publicação nova nesta página.")
             break
 
         page_num += 1

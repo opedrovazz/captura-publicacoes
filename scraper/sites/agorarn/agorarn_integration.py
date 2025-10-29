@@ -6,7 +6,7 @@ from .agorarn_service import AgoraRNService
 INDEX_PATH = "/publicacoescertificadas/page/{page_num}/"
 DATE_FORMAT = "%d/%m/%Y"
 
-def scrape_agorarn(cutoff_date, filter_title=False):
+def scrape_agorarn(cutoff_date, filter_text=None):
     page_num = 1
     collected = []
 
@@ -38,8 +38,8 @@ def scrape_agorarn(cutoff_date, filter_title=False):
                 print(f"Data {pub['date']} excede a data limite. Encerrando scraping.")
                 return collected
 
-            if AgoraRNService.should_filter_title(pub["title"], filter_title):
-                print(f"Pulando '{pub['title']}' (filtro ativo).")
+            if AgoraRNService.should_filter_title(pub["title"], filter_text):
+                print(f"Pulando '{pub['title']}' (não contém '{filter_text}').")
                 continue
 
             collected.append({

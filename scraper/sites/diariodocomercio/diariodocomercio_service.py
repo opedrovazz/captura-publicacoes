@@ -1,7 +1,7 @@
 from ...base_scraper import BaseScraper
 from datetime import datetime
 import re
-from bs4 import BeautifulSoup
+import unicodedata
 
 DATE_FORMAT = "%d/%m/%Y"
 
@@ -10,26 +10,23 @@ class DiarioDoComercioService:
 
     @staticmethod
     def should_collect(pub_date, cutoff_date):
-        """Verifica se a data da publicação é anterior ou igual à data limite."""
         return pub_date <= cutoff_date
 
     @staticmethod
-    def should_filter_title(title, filter_title):
-        """Verifica se o título deve ser filtrado com base na flag 'filter_title'."""
-        if not filter_title:
+    def should_filter_title(title, filter_text):
+        if not filter_text:
             return False
 
-        title_norm = re.sub(r'[ãáàâ]', 'a', title, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[éèê]', 'e', title_norm, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[íìî]', 'i', title_norm, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[õóòô]', 'o', title_norm, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[úùû]', 'u', title_norm, flags=re.IGNORECASE)
+        def normalize(text):
+            nfkd = unicodedata.normalize("NFKD", text)
+            return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
-        return 'balanco' not in title_norm.lower()
+        title_norm = normalize(title)
+        filter_norm = normalize(filter_text)
+        return filter_norm not in title_norm
 
     @staticmethod
     def parse_publication_date_from_url(edital_url):
-        """Extrai e converte a data da URL do edital."""
         url_parts = edital_url.strip('/').split('/')
         date_segment = url_parts[-1] if len(url_parts) > 1 else None
 
@@ -40,5 +37,4 @@ class DiarioDoComercioService:
 
     @staticmethod
     def extract_publication_data(edital_html, edital_url):
-        """Extrai título e URL do PDF do edital (usando lógica da BaseScraper)."""
         return BaseScraper.scrape_pdf_link_and_title(edital_html, edital_url)
