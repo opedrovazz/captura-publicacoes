@@ -44,7 +44,7 @@ captura-publicacoes/
 │   └── routes.py
 ├── scheduler/                      # Tarefas agendadas de scraping automático
 │   └── init.py
-└── tests/                          # Testes automatizados
+└── tests/                          # Testes
 
 ---
 
