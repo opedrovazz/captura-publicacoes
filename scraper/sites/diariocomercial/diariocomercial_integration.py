@@ -5,12 +5,13 @@ from .diariocomercial_service import DiarioComercialService
 
 INDEX_PATH = "/publicidade-legal/pagina/{page_num}/"
 DATE_FORMAT = "%d/%m/%Y"
+MAX_PAGES = 200
 
-def scrape_diariocomercial(cutoff_date, filter_title=False):
+def scrape_diariocomercial(cutoff_date, filter_text=None):
     page_num = 1
     collected = []
 
-    while True:
+    while page_num <= MAX_PAGES:
         index_url = f"{DiarioComercialService.BASE_URL}{INDEX_PATH.format(page_num=page_num)}"
         print(f"\nPágina: {index_url}")
 
@@ -26,7 +27,6 @@ def scrape_diariocomercial(cutoff_date, filter_title=False):
 
         print(f"{len(publications)} publicações encontradas.")
 
-        collected_on_page = False
         for pub in publications:
             try:
                 pub_date = datetime.strptime(pub["date"], DATE_FORMAT)
@@ -34,12 +34,12 @@ def scrape_diariocomercial(cutoff_date, filter_title=False):
                 print(f"Data inválida: {pub['date']}")
                 continue
 
-            if not DiarioComercialService.should_collect(pub_date, cutoff_date):
-                print(f"{pub['date']} excede a data limite. Encerrando scraping.")
-                return collected
+            if pub_date > cutoff_date:
+                # print(f"{pub['date']} é mais nova que {cutoff_date.strftime('%d/%m/%Y')}, ignorando.")
+                continue
 
-            if DiarioComercialService.should_filter_title(pub["title"], filter_title):
-                print(f"⏭Pulando '{pub['title']}' (filtro ativo).")
+            if DiarioComercialService.should_filter_title(pub["title"], filter_text):
+                print(f"Pulando '{pub['title']}' (não contém '{filter_text}').")
                 continue
 
             collected.append({
@@ -50,12 +50,7 @@ def scrape_diariocomercial(cutoff_date, filter_title=False):
                 "original_url": index_url
             })
             print(f"Coletado: {pub['date']} - {pub['title']}")
-            collected_on_page = True
             time.sleep(0.5)
-
-        if not collected_on_page:
-            print("Nenhuma nova publicação nesta página.")
-            break
 
         page_num += 1
         time.sleep(2)

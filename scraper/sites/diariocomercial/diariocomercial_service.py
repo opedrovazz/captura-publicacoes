@@ -1,6 +1,7 @@
 from datetime import datetime
 from bs4 import BeautifulSoup
 import re
+import unicodedata
 
 DATE_FORMAT = "%d/%m/%Y"
 
@@ -9,16 +10,10 @@ class DiarioComercialService:
 
     @staticmethod
     def parse_page_for_publications(page_html):
-        """
-        Lê o HTML da página de índice e retorna uma lista de publicações:
-        [
-          {"date": "28/10/2025", "title": "...", "pdf_url": "..."}
-        ]
-        """
         soup = BeautifulSoup(page_html, "lxml")
         items = []
-
         boxes = soup.find_all("div", class_="publicidade_box_infos")
+
         for box in boxes:
             date_tag = box.find("span", class_="publicidade_data")
             title_tag = box.find("h2")
@@ -45,7 +40,6 @@ class DiarioComercialService:
 
     @staticmethod
     def normalize_date(raw_date):
-        """Converte data textual PT-BR ('27 de outubro de 2025') para dd/mm/yyyy."""
         meses = {
             "janeiro": "01", "fevereiro": "02", "março": "03", "abril": "04",
             "maio": "05", "junho": "06", "julho": "07", "agosto": "08",
@@ -65,14 +59,15 @@ class DiarioComercialService:
         return pub_date <= cutoff_date
 
     @staticmethod
-    def should_filter_title(title, filter_title):
-        if not filter_title:
+    def should_filter_title(title, filter_text):
+        if not filter_text:
             return False
 
-        title_norm = re.sub(r'[ãáàâ]', 'a', title, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[éèê]', 'e', title_norm, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[íìî]', 'i', title_norm, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[õóòô]', 'o', title_norm, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[úùû]', 'u', title_norm, flags=re.IGNORECASE)
+        def normalize(text):
+            nfkd = unicodedata.normalize("NFKD", text)
+            return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
-        return 'balanco' not in title_norm.lower()
+        title_norm = normalize(title)
+        filter_norm = normalize(filter_text)
+
+        return filter_norm not in title_norm

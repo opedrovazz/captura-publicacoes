@@ -1,9 +1,9 @@
 from datetime import datetime
 from bs4 import BeautifulSoup
 import re
+import unicodedata
 
 DATE_FORMAT = "%d/%m/%Y"
-
 
 class AgoraRNService:
     BASE_URL = "https://agorarn.com.br"
@@ -28,18 +28,17 @@ class AgoraRNService:
 
             pdf_url = link_tag["href"]
 
-            # nome da empresa (div strong)
+            # Nome da empresa
             company_div = link_tag.find("div", class_=re.compile(r"strong"))
             company = company_div.get_text(strip=True) if company_div else "Publicação Legal"
 
-            # descrição da publicação
+            # Descrição da publicação
             desc_div = link_tag.find_all("div", class_=re.compile(r"col-md-5"))
             description = desc_div[0].get_text(strip=True) if desc_div else ""
 
-            # data (div col-md-2 text-center)
+            # Data
             date_div = link_tag.find("div", class_=re.compile(r"text-center"))
             raw_date = date_div.get_text(strip=True) if date_div else None
-
             if not raw_date:
                 continue
 
@@ -59,9 +58,7 @@ class AgoraRNService:
 
     @staticmethod
     def normalize_date(raw_date):
-        """
-        Tenta converter uma data como '11/10/2025' ou '11-10-2025' em DD/MM/YYYY.
-        """
+        """Converte datas como '11/10/25' ou '11-10-2025' em DD/MM/YYYY."""
         raw_date = raw_date.strip()
         match = re.match(r"(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})", raw_date)
         if not match:
@@ -73,17 +70,20 @@ class AgoraRNService:
 
     @staticmethod
     def should_collect(pub_date, cutoff_date):
+        """Retorna True se a publicação estiver dentro da data limite."""
         return pub_date <= cutoff_date
 
     @staticmethod
-    def should_filter_title(title, filter_title):
-        if not filter_title:
+    def should_filter_title(title, filter_text):
+        """Retorna True se o título NÃO contém o texto buscado (case-insensitive, ignora acentos)."""
+        if not filter_text:
             return False
 
-        title_norm = re.sub(r'[ãáàâ]', 'a', title, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[éèê]', 'e', title_norm, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[íìî]', 'i', title_norm, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[õóòô]', 'o', title_norm, flags=re.IGNORECASE)
-        title_norm = re.sub(r'[úùû]', 'u', title_norm, flags=re.IGNORECASE)
+        def normalize(text):
+            nfkd = unicodedata.normalize("NFKD", text)
+            return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
-        return 'balanco' not in title_norm.lower()
+        title_norm = normalize(title)
+        filter_norm = normalize(filter_text)
+
+        return filter_norm not in title_norm
