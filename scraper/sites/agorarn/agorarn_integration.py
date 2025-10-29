@@ -5,12 +5,13 @@ from .agorarn_service import AgoraRNService
 
 INDEX_PATH = "/publicacoescertificadas/page/{page_num}/"
 DATE_FORMAT = "%d/%m/%Y"
+MAX_PAGES = 200
 
 def scrape_agorarn(cutoff_date, filter_text=None):
     page_num = 1
     collected = []
 
-    while True:
+    while page_num <= MAX_PAGES:
         index_url = f"{AgoraRNService.BASE_URL}{INDEX_PATH.format(page_num=page_num)}"
         print(f"Processando página: {index_url} - agorarn")
 
@@ -26,7 +27,6 @@ def scrape_agorarn(cutoff_date, filter_text=None):
 
         print(f"{len(publications)} publicações encontradas.")
 
-        collected_on_page = False
         for pub in publications:
             try:
                 pub_date = datetime.strptime(pub["date"], DATE_FORMAT)
@@ -34,9 +34,9 @@ def scrape_agorarn(cutoff_date, filter_text=None):
                 print(f"Data inválida: {pub['date']}")
                 continue
 
-            if not AgoraRNService.should_collect(pub_date, cutoff_date):
-                print(f"Data {pub['date']} excede a data limite. Encerrando scraping.")
-                return collected
+            if pub_date > cutoff_date:
+                # print(f"{pub['date']} é mais nova que {cutoff_date.strftime('%d/%m/%Y')}, ignorando.")
+                continue
 
             if AgoraRNService.should_filter_title(pub["title"], filter_text):
                 print(f"Pulando '{pub['title']}' (não contém '{filter_text}').")
@@ -50,12 +50,7 @@ def scrape_agorarn(cutoff_date, filter_text=None):
                 "original_url": index_url
             })
             print(f"Coletado: {pub['date']} - {pub['title']}")
-            collected_on_page = True
             time.sleep(0.5)
-
-        if not collected_on_page:
-            print("Nenhuma nova publicação nesta página.")
-            break
 
         page_num += 1
         time.sleep(2)

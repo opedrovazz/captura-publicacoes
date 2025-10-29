@@ -1,47 +1,54 @@
-# Captura de Publicações Legais
+# 📜 Captura de Publicações Legais
 
 Projeto em **Python + Flask** para realizar **web scraping** de publicações legais disponíveis nos portais:
 
-- [Diário do Comércio](https://diariodocomercio.com.br/publicidade-legal-impresso/)
-- [Diário Comercial](https://diariocomercial.com.br/publicidade-legal/)
+- [Diário do Comércio](https://diariodocomercio.com.br/publicidade-legal-impresso/)  
+- [Diário Comercial](https://diariocomercial.com.br/publicidade-legal/)  
 - [Agora RN](https://agorarn.com.br/publicacoescertificadas/)
 
-O sistema coleta publicações legais, exporta resultados em **JSON** ou **CSV**, e permite consulta via **API**.
+O sistema coleta publicações legais, aplica filtros opcionais, exporta resultados em **JSON** ou **CSV**, e permite execução **tanto via API Flask quanto via linha de comando (CLI)**.
 
 ---
 
-## Funcionalidades
+## 🧠 Funcionalidades Principais
 
 - Coleta automática de publicações por site.  
-- Filtro obrigatório por **data máxima** (`date=dd/mm/yyyy`).  
-- Escolha do formato de saída: **JSON** (padrão) ou **CSV**.  
-- API local simples feita em **Flask**.  
-- Exportação de resultados diretamente pela requisição.
+- **Filtro obrigatório de data máxima** (`--date dd/mm/yyyy`).  
+- **Filtro opcional de título** (`--filter-text "palavra"`), insensível a acentos e caixa.  
+- Exportação de resultados em **JSON** (padrão) ou **CSV**.  
+- **API local Flask** para consulta via HTTP.  
+- Execução **via linha de comando** ou **modo servidor/scheduler**.  
+- Lógica comum centralizada em `BaseScraper`, evitando duplicação de código.
 
 ---
 
-## Estrutura do Projeto
+## 🧱 Estrutura do Projeto
 
-```
 captura-publicacoes/
 │
-├── main.py                      # Script principal
-├── api/
-│   └── routes.py                # Rotas Flask
+├── main.py                         # Ponto de entrada principal (CLI, API e scheduler)
 ├── scraper/
-│   ├── base_scraper.py          # Classe base
+│   ├── base_scraper.py             # Classe base genérica
 │   └── sites/
 │       ├── diariodocomercio/
+│       │   ├── diariodocomercio_integration.py
+│       │   └── diariodocomercio_service.py
 │       ├── diariocomercial/
+│       │   ├── diariocomercial_integration.py
+│       │   └── diariocomercial_service.py
 │       └── agorarn/
-└── tests/                       # Testes
-```
+│           ├── agorarn_integration.py
+│           └── agorarn_service.py
+│
+├── api/                            # Rotas e inicialização da API Flask
+│   └── routes.py
+├── scheduler/                      # Tarefas agendadas de scraping automático
+│   └── init.py
+└── tests/                          # Testes automatizados
 
 ---
 
-## Instalação
-
-Clone o repositório e instale as dependências:
+## ⚙️ Instalação
 
 ```bash
 git clone https://github.com/opedrovazz/captura-publicacoes.git
@@ -51,79 +58,155 @@ pip install -r requirements.txt
 
 ---
 
-## Execução da API
+## 🚀 Modo de Execução via Linha de Comando (CLI)
+
+Permite rodar os scrapers manualmente com parâmetros de filtro e formato.
+
+### Sintaxe geral
+```bash
+python main.py <site> --date dd/mm/yyyy [--format json|csv] [--filter-text "palavra"]
+```
+
+### Parâmetros
+
+| Parâmetro | Obrigatório | Descrição |
+|------------|-------------|------------|
+| `<site>` | ✅ | Nome do site (`agorarn`, `diariodocomercio`, `diariocomercial`) |
+| `--date` | ✅ | Data limite no formato `dd/mm/yyyy`. Publicações posteriores são ignoradas. |
+| `--format` | ❌ | Formato de saída: `json` (padrão) ou `csv`. |
+| `--filter-text` | ❌ | Palavra a ser buscada nos títulos (case-insensitive e sem acentos). |
+
+### Exemplos
+
+**1️⃣ Executar o scraper do Diário do Comércio (JSON padrão)**  
+```bash
+python main.py diariodocomercio --date 31/10/2025
+```
+
+**2️⃣ Exportar CSV filtrando títulos que contenham “assembleia”**  
+```bash
+python main.py diariocomercial --date 30/10/2025 --format csv --filter-text "assembleia"
+```
+
+**3️⃣ Rodar para Agora RN filtrando “demonstrativo”**  
+```bash
+python main.py agorarn --date 29/10/2025 --filter-text "demonstrativo"
+```
+
+### Saída gerada
+
+O scraper salva automaticamente o resultado no diretório atual:
+
+```
+resultados_<site>_<data>.json
+resultados_<site>_<data>.csv
+```
+
+Exemplo:
+```
+resultados_diariodocomercio_31-10-2025.csv
+```
+
+Cada registro contém:
+```json
+{
+  "date": "30/10/2025",
+  "title": "Balanço Patrimonial 2024",
+  "pdf_url": "https://...",
+  "site": "diariodocomercio.com.br",
+  "original_url": "https://..."
+}
+```
+
+---
+
+## 🧩 Modo Servidor (API Flask)
+
+Permite rodar o servidor Flask local para consultas via HTTP:
 
 ```bash
 python main.py api
 ```
-Após iniciar, o servidor roda por padrão em:
 
+Servidor padrão:
 ```
 http://127.0.0.1:5000
 ```
 
----
+### Rotas disponíveis
 
-## Rotas Disponíveis
+**GET /**  
+Retorna informações sobre a API e os sites suportados.
 
-### 1. `GET /`
-Retorna informações básicas sobre a API e os sites disponíveis.
+**GET /<site>?date=dd/mm/yyyy&format=json|csv&filter=palavra**  
+Executa o scraper e retorna o resultado direto na resposta.
 
-**Exemplo de resposta:**
-```json
-{
-  "message": "API de Scrapers Online",
-  "endpoints": {
-    "run": "/<site>?date=dd/mm/yyyy&format={json|csv}",
-    "sites_disponiveis": ["diariodocomercio", "diariocomercial", "agorarn"]
-  }
-}
+**Exemplo:**
+```
+GET /agorarn?date=29/10/2025&format=csv&filter=assembleia
+```
+
+**Resposta (CSV):**
+```
+date,title,pdf_url,site,original_url
+29/10/2025,Assembleia Geral Extraordinária,https://...,agorarn.com.br,https://...
 ```
 
 ---
 
-### 2. `GET /<site>`
-Executa o scraper de um site específico, filtrando por data.
+## 🕒 Modo Agendado (Scheduler)
 
-**Parâmetros obrigatórios:**  
-- `date`: data limite no formato `dd/mm/yyyy`  
-- `format`: (opcional) formato de saída, `json` (padrão) ou `csv`
-
-**Exemplos:**
-
-#### JSON (padrão)
+Execução automática diária dos scrapers:
 ```bash
-GET /diariodocomercio?date=31/01/2025
-```
-**Resposta:**
-```json
-{
-  "site": "diariodocomercio",
-  "cutoff_date": "31/01/2025",
-  "total": 25,
-  "results": [
-    {"date": "30/01/2025", "title": "Balanço Patrimonial 2024", "pdf_url": "https://..."}
-  ]
-}
+python main.py scheduler
 ```
 
-#### CSV
+Ou para rodar API + Scheduler simultaneamente:
 ```bash
-GET /agorarn?date=29/10/2025&format=csv
-```
-A resposta é um arquivo `.csv` com cabeçalho e colunas:
-```
-date,title,pdf_url
-29/10/2025,Balanço Patrimonial 2024,https://...
+python main.py both
 ```
 
 ---
 
-## Observações Importantes
+## 🧰 Tecnologias e Bibliotecas Utilizadas
 
-- Caso o `site` informado não exista, a API retorna erro 400.  
-- O parâmetro `date` é obrigatório — se omitido, retorna erro 400.  
-- Formatos válidos: `json` ou `csv`.  
-- Caso não haja resultados, a resposta em CSV retorna código 204 (sem conteúdo).
+- **Python 3.10+**  
+- **Flask** — API HTTP  
+- **BeautifulSoup4 + lxml** — parsing HTML  
+- **urllib** — requisições HTTP  
+- **threading** — execução simultânea da API e agendador  
+- **argparse** — interface CLI
 
 ---
+
+## 📁 Formatos de Saída
+
+| Formato | Extensão | Descrição |
+|----------|-----------|-----------|
+| JSON | `.json` | Lista de objetos com `date`, `title`, `pdf_url`, `site`, `original_url`. |
+| CSV | `.csv` | Arquivo tabular com cabeçalho `date,title,pdf_url,site,original_url`. |
+
+---
+
+## ✅ Escopo de Coleta
+
+O scraper coleta todas as publicações disponíveis de 2025 em cada site.  
+Ele interrompe automaticamente quando atinge uma publicação posterior à data limite (`--date`).
+
+---
+
+## 🧾 Exemplo (CLI)
+
+```bash
+python main.py agorarn --date 31/10/2025 --format csv --filter-text "patrimonial"
+```
+
+Saída esperada:
+```
+Iniciando coleta para o site 'agorarn' com data limite 31/10/2025...
+Processando página: https://agorarn.com.br/publicacoescertificadas/page/1/
+5 publicações encontradas.
+Coletado: 29/10/2025 - Balanço Patrimonial 2024
+✅ Coleta concluída. Resultado salvo em: resultados_agorarn_31-10-2025.csv
+```
+
